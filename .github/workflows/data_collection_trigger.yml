@@ -1,0 +1,36 @@
+name: Daily Data Collection Trigger
+
+on:
+  schedule:
+    # Runs every day at 01:00 UTC (9 AM Beijing Time)
+    - cron: '0 1 * * *'
+  workflow_dispatch:
+    # Allows manual triggering from the GitHub Actions tab
+
+jobs:
+  trigger_space:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send trigger to Hugging Face Space
+        env:
+          HF_SPACE_URL: ${{ secrets.HF_SPACE_URL }}
+          HF_RUN_KEY: ${{ secrets.HF_RUN_KEY }}
+        run: |
+          echo "Attempting to trigger data collection at Hugging Face Space: $HF_SPACE_URL"
+          response=$(curl -X POST \
+            -H "Content-Type: application/json" \
+            -d "{\"secret_key\": \"$HF_RUN_KEY\"}" \
+            "${HF_SPACE_URL}/run_collector")
+          
+          echo "Response from Space:"
+          echo "$response"
+          
+          if echo "$response" | grep -q "Wrong account"; then
+            echo "Error: Authentication failed. Check HF_RUN_KEY secret."
+            exit 1
+          elif echo "$response" | grep -q "Running error"; then
+            echo "Error: Script execution failed on Space. Check Space logs."
+            exit 1
+          else
+            echo "Successfully triggered data collection."
+          fi
