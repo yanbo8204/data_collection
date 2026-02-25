@@ -20,7 +20,7 @@ jobs:
           response=$(curl -X POST \
             -H "Content-Type: application/json" \
             -d "{\"secret_key\": \"$HF_RUN_KEY\"}" \
-            "${HF_SPACE_URL}/run_collector")
+            "${HF_SPACE_URL}/run/run_collector")
           
           echo "Response from Space:"
           echo "$response"
