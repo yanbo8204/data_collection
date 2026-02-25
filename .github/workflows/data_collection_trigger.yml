@@ -11,36 +11,51 @@ jobs:
   trigger_space:
     runs-on: ubuntu-latest
     steps:
-      - name: Send trigger to Hugging Face Space
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install gradio_client
+        run: pip install gradio_client
+
+      - name: Trigger Hugging Face Space API
         env:
-          HF_SPACE_URL: ${{ secrets.HF_SPACE_URL }}
+          HF_SPACE_ID: "Yanbo2/Compute-and-Token-Watch" 
           HF_RUN_KEY: ${{ secrets.HF_RUN_KEY }}
         run: |
-          # Remove trailing slashes from the base URL
-          BASE_URL=$(echo $HF_SPACE_URL | sed 's:/*$::')
+          python -c "
+          from gradio_client import Client
+          import os
+          import sys
+
+          space_id = os.environ.get('HF_SPACE_ID')
+          run_key = os.environ.get('HF_RUN_KEY')
+
+          print(f'Connecting to Hugging Face Space: {space_id}')
           
-          echo "Attempting to trigger data collection at Hugging Face Space: $BASE_URL"
-          
-          # Use /run/run_collector for the Gradio API endpoint
-          response=$(curl -s -X POST \
-            -H "Content-Type: application/json" \
-            -d "{\"data\": [\"$HF_RUN_KEY\"]}" \
-            "${BASE_URL}/run/run_collector")
-          
-          echo "Response from Space:"
-          echo "$response"
-          
-          # Enhanced error checking: Catch generic Gradio HTTP errors
-          if echo "$response" | grep -q "\"error\""; then
-            echo "Error: Server returned an HTTP error. See response above."
-            exit 1
-          # Catch custom Python script errors
-          elif echo "$response" | grep -q "Auth failed: Incorrect secret key!"; then
-            echo "Error: Authentication failed. Check HF_RUN_KEY secret."
-            exit 1
-          elif echo "$response" | grep -q "Execution error"; then
-            echo "Error: Script execution failed on Space. Check Space logs."
-            exit 1
-          else
-            echo "Successfully triggered data collection."
-          fi
+          try:
+              # Initialize the client. This automatically resolves the correct underlying URL.
+              client = Client(space_id)
+              
+              print('Triggering data collection...')
+              
+              # Call the hidden API endpoint defined in app.py
+              result = client.predict(
+                  secret_key=run_key,
+                  api_name='/run_collector'
+              )
+              
+              print(f'Response from Space:\n{result}')
+              
+              # Validate the response string against our known custom error messages
+              if 'Auth failed' in str(result) or 'Execution error' in str(result):
+                  print('Error: Job failed inside the Space. Check logs above.')
+                  sys.exit(1)
+              else:
+                  print('Success! Data collection triggered perfectly.')
+                  
+          except Exception as e:
+              print(f'Critical Error connecting or running API: {e}')
+              sys.exit(1)
+          "
