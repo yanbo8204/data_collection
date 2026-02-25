@@ -16,19 +16,24 @@ jobs:
           HF_SPACE_URL: ${{ secrets.HF_SPACE_URL }}
           HF_RUN_KEY: ${{ secrets.HF_RUN_KEY }}
         run: |
-          echo "Attempting to trigger data collection at Hugging Face Space: $HF_SPACE_URL"
-          response=$(curl -X POST \
+          # Ensure URL doesn't have a trailing slash before appending /api/
+          BASE_URL=$(echo $HF_SPACE_URL | sed 's:/*$::')
+          
+          echo "Attempting to trigger data collection at Hugging Face Space: $BASE_URL"
+          
+          # Gradio API requires the payload to be inside a "data" array
+          response=$(curl -s -X POST \
             -H "Content-Type: application/json" \
-            -d "{\"secret_key\": \"$HF_RUN_KEY\"}" \
-            "${HF_SPACE_URL}/run/run_collector")
+            -d "{\"data\": [\"$HF_RUN_KEY\"]}" \
+            "${BASE_URL}/api/run_collector")
           
           echo "Response from Space:"
           echo "$response"
           
-          if echo "$response" | grep -q "鉴权失败：暗号错误！"; then
+          if echo "$response" | grep -q "Auth failed: Incorrect secret key!"; then
             echo "Error: Authentication failed. Check HF_RUN_KEY secret."
             exit 1
-          elif echo "$response" | grep -q "运行出错"; then
+          elif echo "$response" | grep -q "Execution error"; then
             echo "Error: Script execution failed on Space. Check Space logs."
             exit 1
           else
