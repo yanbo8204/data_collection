@@ -25,10 +25,10 @@ jobs:
           echo "Response from Space:"
           echo "$response"
           
-          if echo "$response" | grep -q "Wrong account"; then
+          if echo "$response" | grep -q "鉴权失败：暗号错误！"; then
             echo "Error: Authentication failed. Check HF_RUN_KEY secret."
             exit 1
-          elif echo "$response" | grep -q "Running error"; then
+          elif echo "$response" | grep -q "运行出错"; then
             echo "Error: Script execution failed on Space. Check Space logs."
             exit 1
           else
